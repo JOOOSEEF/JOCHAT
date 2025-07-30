@@ -1,26 +1,28 @@
-
 from flask import Flask, request, jsonify
 import sqlite3
 from datetime import datetime
 from flask_cors import CORS
+import os
 
 app = Flask(__name__)
-CORS(app)  # Permitir peticiones desde frontend local
+CORS(app)  # Permitir peticiones desde frontend
 
-DB_PATH = '../database/chat.db'
+# Base de datos en raíz del proyecto, compatible con Render
+DB_PATH = os.path.join(os.getcwd(), 'chat.db')
 
 def init_db():
-    with sqlite3.connect(DB_PATH) as conn:
-        cursor = conn.cursor()
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS mensajes (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                usuario TEXT,
-                texto TEXT,
-                fecha TEXT
-            )
-        ''')
-        conn.commit()
+    if not os.path.exists(DB_PATH):
+        with sqlite3.connect(DB_PATH) as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS mensajes (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    usuario TEXT,
+                    texto TEXT,
+                    fecha TEXT
+                )
+            ''')
+            conn.commit()
 
 @app.route('/mensajes', methods=['GET'])
 def obtener_mensajes():
@@ -46,4 +48,6 @@ def guardar_mensaje():
 
 if __name__ == '__main__':
     init_db()
-    app.run(debug=True)
+    port = int(os.environ.get("PORT", 5000))  # Necesario para Render
+    app.run(debug=False, host='0.0.0.0', port=port)
+
