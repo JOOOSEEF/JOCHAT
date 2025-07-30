@@ -1,15 +1,17 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template
 import sqlite3
 from datetime import datetime
 from flask_cors import CORS
 import os
 
-app = Flask(__name__)
-CORS(app)  # Permitir peticiones desde frontend
+# Inicializar Flask y permitir CORS
+app = Flask(__name__, static_folder='static', template_folder='templates')
+CORS(app)
 
-# Base de datos en raíz del proyecto, compatible con Render
-DB_PATH = os.path.join(os.getcwd(), 'chat.db')
+# Ruta absoluta a la base de datos
+DB_PATH = os.path.join(os.path.dirname(__file__), 'chat.db')
 
+# Crear base de datos si no existe
 def init_db():
     if not os.path.exists(DB_PATH):
         with sqlite3.connect(DB_PATH) as conn:
@@ -24,6 +26,12 @@ def init_db():
             ''')
             conn.commit()
 
+# Ruta principal (Render carga esto en la raíz /)
+@app.route('/')
+def home():
+    return render_template("index.html")
+
+# Obtener todos los mensajes
 @app.route('/mensajes', methods=['GET'])
 def obtener_mensajes():
     with sqlite3.connect(DB_PATH) as conn:
@@ -32,6 +40,7 @@ def obtener_mensajes():
         mensajes = cursor.fetchall()
     return jsonify([{"usuario": u, "texto": t, "fecha": f} for u, t, f in mensajes])
 
+# Guardar mensaje nuevo
 @app.route('/mensajes', methods=['POST'])
 def guardar_mensaje():
     data = request.get_json()
@@ -46,8 +55,8 @@ def guardar_mensaje():
 
     return jsonify({"status": "ok", "fecha": fecha})
 
+# Ejecutar servidor
 if __name__ == '__main__':
     init_db()
-    port = int(os.environ.get("PORT", 5000))  # Necesario para Render
+    port = int(os.environ.get("PORT", 5000))  # Requerido por Render
     app.run(debug=False, host='0.0.0.0', port=port)
-
