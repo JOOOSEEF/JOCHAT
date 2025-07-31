@@ -83,10 +83,23 @@
     {% if error_reg %}
       <div class="error">{{ error_reg }}</div>
     {% endif %}
-    <input name="username" type="text" placeholder="Nuevo usuario" required autofocus>
-    <input name="password" type="password" placeholder="Contraseña" required>
+    <input
+      name="username"
+      type="text"
+      placeholder="Nuevo usuario"
+      required
+      autofocus
+    >
+    <input
+      name="password"
+      type="password"
+      placeholder="Contraseña"
+      required
+    >
     <button type="submit">Crear cuenta</button>
-    <a href="{{ url_for('auth') }}" class="link">← ¿Ya tienes cuenta? Inicia sesión</a>
+    <a href="{{ url_for('auth') }}" class="link">
+      ← ¿Ya tienes cuenta? Inicia sesión
+    </a>
   </form>
 </body>
 </html>
