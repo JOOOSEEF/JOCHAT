@@ -11,19 +11,21 @@ CORS(app)
 # Ruta absoluta a la base de datos
 DB_PATH = os.path.join(os.path.dirname(__file__), 'chat.db')
 
-# Crear base de datos si no existe
+# Crear base de datos si no existe (con cliente_id)
 def init_db():
-    with sqlite3.connect(DB_PATH) as conn:
-        cursor = conn.cursor()
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS mensajes (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                usuario TEXT,
-                texto TEXT,
-                fecha TEXT
-            )
-        ''')
-        conn.commit()
+    if not os.path.exists(DB_PATH):
+        with sqlite3.connect(DB_PATH) as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS mensajes (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    cliente_id TEXT,
+                    usuario TEXT,
+                    texto TEXT,
+                    fecha TEXT
+                )
+            ''')
+            conn.commit()
 
 # Ruta principal del chat (cliente)
 @app.route('/')
@@ -35,7 +37,7 @@ def home():
 def panel_admin():
     return render_template('admin.html')
 
-# Obtener todos los mensajes
+# Obtener todos los mensajes (usado antes)
 @app.route('/mensajes', methods=['GET'])
 def obtener_mensajes():
     with sqlite3.connect(DB_PATH) as conn:
@@ -44,17 +46,37 @@ def obtener_mensajes():
         mensajes = cursor.fetchall()
     return jsonify([{"usuario": u, "texto": t, "fecha": f} for u, t, f in mensajes])
 
-# Guardar mensaje nuevo
+# Obtener mensajes por cliente (nuevo)
+@app.route('/mensajes/<cliente_id>', methods=['GET'])
+def mensajes_por_cliente(cliente_id):
+    with sqlite3.connect(DB_PATH) as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT usuario, texto, fecha FROM mensajes WHERE cliente_id = ? ORDER BY fecha ASC", (cliente_id,))
+        mensajes = cursor.fetchall()
+    return jsonify([{"usuario": u, "texto": t, "fecha": f} for u, t, f in mensajes])
+
+# Obtener lista de clientes únicos (nuevo)
+@app.route('/clientes', methods=['GET'])
+def listar_clientes():
+    with sqlite3.connect(DB_PATH) as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT DISTINCT cliente_id FROM mensajes ORDER BY cliente_id ASC")
+        clientes = [row[0] for row in cursor.fetchall()]
+    return jsonify(clientes)
+
+# Guardar mensaje nuevo (añadido cliente_id)
 @app.route('/mensajes', methods=['POST'])
 def guardar_mensaje():
     data = request.get_json()
+    cliente_id = data.get("cliente_id", "anonimo")
     usuario = data.get("usuario", "Cliente")
     texto = data.get("texto", "")
     fecha = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     with sqlite3.connect(DB_PATH) as conn:
         cursor = conn.cursor()
-        cursor.execute("INSERT INTO mensajes (usuario, texto, fecha) VALUES (?, ?, ?)", (usuario, texto, fecha))
+        cursor.execute("INSERT INTO mensajes (cliente_id, usuario, texto, fecha) VALUES (?, ?, ?, ?)",
+                       (cliente_id, usuario, texto, fecha))
         conn.commit()
 
     return jsonify({"status": "ok", "fecha": fecha})
