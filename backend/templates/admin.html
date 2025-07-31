@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Panel de Soporte</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background: #f0f0f0; }
+        #mensajes { background: white; padding: 10px; height: 300px; overflow-y: scroll; border: 1px solid #ccc; }
+        #mensajes div { margin-bottom: 10px; }
+        input, button { margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <h1>📥 Panel de Soporte</h1>
+    <div id="mensajes"></div>
+
+    <input type="text" id="adminInput" placeholder="Responder..." />
+    <button onclick="responder()">Enviar</button>
+
+    <script>
+        async function cargarMensajes() {
+            const res = await fetch("/mensajes");
+            const datos = await res.json();
+            const contenedor = document.getElementById("mensajes");
+            contenedor.innerHTML = "";
+            datos.forEach(msg => {
+                const d = document.createElement("div");
+                d.textContent = `[${msg.fecha}] ${msg.usuario}: ${msg.texto}`;
+                contenedor.appendChild(d);
+            });
+        }
+
+        async function responder() {
+            const texto = document.getElementById("adminInput").value;
+            if (!texto) return;
+            await fetch("/mensajes", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ usuario: "Soporte", texto })
+            });
+            document.getElementById("adminInput").value = "";
+            cargarMensajes();
+        }
+
+        setInterval(cargarMensajes, 2000); // Actualizar cada 2s
+        cargarMensajes();
+    </script>
+</body>
+</html>
