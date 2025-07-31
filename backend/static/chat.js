@@ -100,8 +100,21 @@ function loadTyping() {
 document.getElementById('message-input')
     .addEventListener('input', sendTyping);
 
+// === Aquí modificamos toggleChat para incluir el saludo ===
+function toggleChat() {
+    chatAbierto = !chatAbierto;
+    document.getElementById('chat-container').style.display = chatAbierto ? 'flex' : 'none';
+    document.getElementById('chat-bubble').style.display = 'none';
+    verificarHorario();
+
+    if (chatAbierto) {
+        // Lanzamos la bienvenida y recarga de mensajes
+        enviarBienvenida();
+    }
+}
+
 // Inicia carga de mensajes y typing periódicamente
-enviarBienvenida();
+// (estas llamadas se mantienen)
 loadMessages();
 setInterval(loadMessages, 3000);
 setInterval(loadTyping, 1000);
