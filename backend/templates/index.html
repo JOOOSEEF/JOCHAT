@@ -23,6 +23,7 @@
         </div>
     </div>
 
-    <script src="chat.js"></script>
+    <!-- ✅ Carga el JS de forma correcta con Flask -->
+    <script src="{{ url_for('static', filename='chat.js') }}"></script>
 </body>
 </html>
