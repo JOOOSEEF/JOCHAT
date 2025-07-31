@@ -5,9 +5,12 @@
     <title>Panel de Soporte</title>
     <style>
         body { margin: 0; font-family: sans-serif; }
-        nav { background: #ffa500; padding: 10px; color: white; display: flex; gap: 10px; }
+        nav { background: #ffa500; padding: 10px; color: white; display: flex; justify-content: space-between; align-items: center; }
+        .nav-buttons { display: flex; gap: 10px; }
         nav button { background: transparent; border: none; color: white; font-size: 16px; cursor: pointer; }
         nav button.active { font-weight: bold; text-decoration: underline; }
+        nav a { color: white; text-decoration: none; font-size: 14px; }
+
         #container { display: flex; height: calc(100vh - 48px); }
         #clientes { width: 200px; background: #f0f0f0; padding: 10px; overflow-y: auto; border-right: 1px solid #ddd; }
         .cliente { cursor: pointer; padding: 8px; margin-bottom: 5px; background: #fff; border-radius: 4px; border: 1px solid #ccc; display: flex; justify-content: space-between; align-items: center; }
@@ -36,8 +39,14 @@
 </head>
 <body>
     <nav>
-        <button id="btn-chats" class="active" onclick="mostrarSeccion('chats')">Chats</button>
-        <button id="btn-tickets" onclick="mostrarSeccion('tickets')">Tickets</button>
+        <div class="nav-buttons">
+            <button id="btn-chats" class="active" onclick="mostrarSeccion('chats')">Chats</button>
+            <button id="btn-tickets" onclick="mostrarSeccion('tickets')">Tickets</button>
+        </div>
+        <div>
+            Agente: <strong>{{ agente }}</strong> |
+            <a href="{{ url_for('logout') }}">Cerrar sesión</a>
+        </div>
     </nav>
     <div id="container">
         <div id="clientes"></div>
@@ -56,7 +65,7 @@
         </div>
     </div>
     <script>
-        const agenteNombre = prompt('¿Cómo te llamas?', 'Agente');
+        const agenteNombre = "{{ agente }}";
         let clienteSeleccionado = null;
         let asignaciones = {};
         
