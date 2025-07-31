@@ -145,7 +145,7 @@
                         const btn=document.createElement('button');
                         btn.textContent=t.atendido?'Atendido':'Marcar atendido';
                         if(t.atendido) btn.disabled=true;
-                        else btn.onclick()=>atenderTicket(t.id);
+                        else btn.onclick = ()=> atenderTicket(t.id);
                         d.appendChild(btn);
                         out.appendChild(d);
                     });
