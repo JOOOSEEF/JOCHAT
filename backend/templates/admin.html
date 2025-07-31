@@ -11,8 +11,14 @@
         #chat-input { display: flex; padding: 10px; border-top: 1px solid #ccc; }
         #chat-input input { flex: 1; padding: 5px; }
         #chat-input button { padding: 5px 10px; }
+
         .cliente { cursor: pointer; padding: 5px; border-bottom: 1px solid #ccc; }
         .cliente:hover { background: #ddd; }
+        .cliente.selected {
+            background-color: #ffa500;
+            color: white;
+            font-weight: bold;
+        }
     </style>
 </head>
 <body>
@@ -42,6 +48,10 @@
                         div.onclick = () => {
                             clienteSeleccionado = cliente;
                             cargarMensajes(cliente);
+
+                            // Destacar visualmente el cliente seleccionado
+                            document.querySelectorAll('.cliente').forEach(el => el.classList.remove('selected'));
+                            div.classList.add('selected');
                         };
                         cont.appendChild(div);
                     });
@@ -59,11 +69,12 @@
                         p.textContent = `[${msg.fecha}] ${msg.usuario}: ${msg.texto}`;
                         cont.appendChild(p);
                     });
+                    cont.scrollTop = cont.scrollHeight; // Auto-scroll
                 });
         }
 
         function responder() {
-            const texto = document.getElementById('respuesta').value;
+            const texto = document.getElementById('respuesta').value.trim();
             if (!texto || !clienteSeleccionado) return;
 
             fetch('/mensajes', {
@@ -79,6 +90,11 @@
                 cargarMensajes(clienteSeleccionado);
             });
         }
+
+        // Enviar con Enter
+        document.getElementById('respuesta').addEventListener('keydown', function (e) {
+            if (e.key === 'Enter') responder();
+        });
 
         cargarClientes();
         setInterval(() => {
