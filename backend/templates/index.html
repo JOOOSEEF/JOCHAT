@@ -37,7 +37,7 @@
         }
 
         #chat-container {
-            display: none;
+            /* Inline se fuerza display:none, aquí solo definimos layout */
             position: fixed;
             bottom: 90px;
             right: 20px;
@@ -113,7 +113,8 @@
 
     <button id="chat-button" onclick="toggleChat()">💬</button>
 
-    <div id="chat-container">
+    <!-- Arranca siempre oculto gracias al style inline -->
+    <div id="chat-container" style="display: none;">
         <div id="chat-header">🧺 Chat Comenaranjas</div>
         <div id="chat-messages"></div>
         <div id="typing-indicator">Soporte está escribiendo...</div>
@@ -182,6 +183,10 @@
         }
 
         window.onload = () => {
+            // Nos aseguramos de esconder el chat-container al cargar
+            document.getElementById('chat-container').style.display = 'none';
+
+            // Luego mostramos solo la burbuja de bienvenida
             const bubble = document.getElementById('chat-bubble');
             if (!chatAbierto) {
                 bubble.style.display = 'block';
