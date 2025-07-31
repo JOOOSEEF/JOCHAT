@@ -2,7 +2,7 @@ from flask import Flask, request, jsonify, render_template, redirect, url_for
 from flask_cors import CORS
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timedelta
 import os
 
 app = Flask(__name__, static_folder='static', template_folder='templates')
@@ -15,6 +15,9 @@ login_manager.login_view = 'login'
 login_manager.init_app(app)
 
 DB_PATH = os.path.join(os.path.dirname(__file__), 'chat.db')
+
+# Indicador de "escribiendo"
+typing_status = {}
 
 class Agente(UserMixin):
     def __init__(self, id_, username):
@@ -97,9 +100,6 @@ def login():
         error = True
     return render_template('login.html', error=error)
 
-# Aquí añadimos GET y POST para registro de agentes,
-# justo debajo de la ruta de login:
-
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     error = None
@@ -121,7 +121,6 @@ def register():
                 message = 'Agente registrado con éxito'
             except sqlite3.IntegrityError:
                 error = 'Ese usuario ya existe'
-    # Renderizamos register.html tanto en GET como después del POST:
     return render_template('register.html', error=error, message=message)
 
 @app.route('/logout')
@@ -129,6 +128,23 @@ def register():
 def logout():
     logout_user()
     return redirect(url_for('login'))
+
+# --- Indicador de "escribiendo" ---
+
+@app.route('/typing', methods=['POST'])
+def mark_typing():
+    data = request.get_json()
+    cliente_id = data.get('cliente_id')
+    if cliente_id:
+        typing_status[cliente_id] = datetime.now()
+    return ('', 204)
+
+@app.route('/typing/<cliente_id>', methods=['GET'])
+def get_typing(cliente_id):
+    ts = typing_status.get(cliente_id)
+    if ts and datetime.now() - ts < timedelta(seconds=5):
+        return jsonify({'typing': True})
+    return jsonify({'typing': False})
 
 # --- Resto de rutas ---
 
