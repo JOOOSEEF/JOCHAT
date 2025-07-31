@@ -78,6 +78,20 @@ function enviarBienvenida() {
     }
 }
 
+// Añadimos función para mostrar bienvenida en la UI
+let bienvenidaUIMostrada = false;
+function showWelcomeInUI() {
+    if (!bienvenidaUIMostrada) {
+        const container = document.getElementById('chat-messages');
+        const div = document.createElement('div');
+        div.textContent = "👋 Hola, ¿en qué puedo ayudarte?";
+        div.className = 'msg msg-agente';
+        container.appendChild(div);
+        container.scrollTop = container.scrollHeight;
+        bienvenidaUIMostrada = true;
+    }
+}
+
 // Indicador "escribiendo"
 function sendTyping() {
     fetch('/typing', {
@@ -107,6 +121,13 @@ function toggleChat() {
     document.getElementById('chat-container').style.display = chatAbierto ? 'flex' : 'none';
     document.getElementById('chat-bubble').style.display = 'none';
     verificarHorario();
+
+    if (chatAbierto) {
+        // Enviar y mostrar bienvenida
+        enviarBienvenida();
+        showWelcomeInUI();
+    }
+}
 
     if (chatAbierto) {
         enviarBienvenida();
