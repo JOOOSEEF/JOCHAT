@@ -1,11 +1,14 @@
+# backend/app/admin.py
+
 from flask import Blueprint, render_template
 from flask_login import login_required, current_user
 
-# Blueprint para la parte de administración (panel de agentes)
+# Ahora las plantillas están en backend/app/templates/
 admin_bp = Blueprint(
-    'admin', __name__,
+    'admin',
+    __name__,
     url_prefix='/admin',
-    template_folder='../templates'
+    template_folder='templates'
 )
 
 @admin_bp.route('/')
@@ -27,4 +30,3 @@ def snippet():
     """
     tenant_id = current_user.username
     return render_template('embed_script.html', tenant=tenant_id)
-
