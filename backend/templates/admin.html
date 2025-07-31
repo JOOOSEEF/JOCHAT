@@ -4,46 +4,86 @@
     <meta charset="UTF-8">
     <title>Panel de Soporte</title>
     <style>
-        body { font-family: Arial, sans-serif; padding: 20px; background: #f0f0f0; }
-        #mensajes { background: white; padding: 10px; height: 300px; overflow-y: scroll; border: 1px solid #ccc; }
-        #mensajes div { margin-bottom: 10px; }
-        input, button { margin-top: 10px; }
+        body { margin: 0; font-family: sans-serif; display: flex; height: 100vh; }
+        #clientes { width: 200px; background: #eee; padding: 10px; overflow-y: auto; }
+        #chat { flex: 1; display: flex; flex-direction: column; }
+        #chat-mensajes { flex: 1; padding: 10px; overflow-y: auto; background: #f9f9f9; }
+        #chat-input { display: flex; padding: 10px; border-top: 1px solid #ccc; }
+        #chat-input input { flex: 1; padding: 5px; }
+        #chat-input button { padding: 5px 10px; }
+        .cliente { cursor: pointer; padding: 5px; border-bottom: 1px solid #ccc; }
+        .cliente:hover { background: #ddd; }
     </style>
 </head>
 <body>
-    <h1>📥 Panel de Soporte</h1>
-    <div id="mensajes"></div>
+    <div id="clientes"></div>
 
-    <input type="text" id="adminInput" placeholder="Responder..." />
-    <button onclick="responder()">Enviar</button>
+    <div id="chat">
+        <div id="chat-mensajes"></div>
+        <div id="chat-input">
+            <input type="text" id="respuesta" placeholder="Escribe una respuesta...">
+            <button onclick="responder()">Enviar</button>
+        </div>
+    </div>
 
     <script>
-        async function cargarMensajes() {
-            const res = await fetch("/mensajes");
-            const datos = await res.json();
-            const contenedor = document.getElementById("mensajes");
-            contenedor.innerHTML = "";
-            datos.forEach(msg => {
-                const d = document.createElement("div");
-                d.textContent = `[${msg.fecha}] ${msg.usuario}: ${msg.texto}`;
-                contenedor.appendChild(d);
+        let clienteSeleccionado = null;
+
+        function cargarClientes() {
+            fetch('/clientes')
+                .then(res => res.json())
+                .then(data => {
+                    const cont = document.getElementById('clientes');
+                    cont.innerHTML = '';
+                    data.forEach(cliente => {
+                        const div = document.createElement('div');
+                        div.textContent = cliente;
+                        div.className = 'cliente';
+                        div.onclick = () => {
+                            clienteSeleccionado = cliente;
+                            cargarMensajes(cliente);
+                        };
+                        cont.appendChild(div);
+                    });
+                });
+        }
+
+        function cargarMensajes(cliente_id) {
+            fetch(`/mensajes/${cliente_id}`)
+                .then(res => res.json())
+                .then(data => {
+                    const cont = document.getElementById('chat-mensajes');
+                    cont.innerHTML = '';
+                    data.forEach(msg => {
+                        const p = document.createElement('p');
+                        p.textContent = `[${msg.fecha}] ${msg.usuario}: ${msg.texto}`;
+                        cont.appendChild(p);
+                    });
+                });
+        }
+
+        function responder() {
+            const texto = document.getElementById('respuesta').value;
+            if (!texto || !clienteSeleccionado) return;
+
+            fetch('/mensajes', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    cliente_id: clienteSeleccionado,
+                    usuario: "Soporte",
+                    texto: texto
+                })
+            }).then(() => {
+                document.getElementById('respuesta').value = '';
+                cargarMensajes(clienteSeleccionado);
             });
         }
 
-        async function responder() {
-            const texto = document.getElementById("adminInput").value;
-            if (!texto) return;
-            await fetch("/mensajes", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ usuario: "Soporte", texto })
-            });
-            document.getElementById("adminInput").value = "";
-            cargarMensajes();
-        }
-
-        setInterval(cargarMensajes, 2000); // Actualizar cada 2s
-        cargarMensajes();
+        cargarClientes();
+        setInterval(() => {
+            if (clienteSeleccionado) cargarMensajes(clienteSeleccionado);
+        }, 3000);
     </script>
 </body>
 </html>
