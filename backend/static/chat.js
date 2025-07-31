@@ -88,7 +88,8 @@ function loadTyping() {
 }
 
 // Abrir/Cerrar chat
-document.getElementById('chat-button').addEventListener('click', () => {
+const chatButton = document.getElementById('chat-button');
+chatButton.addEventListener('click', () => {
     chatAbierto = !chatAbierto;
     const container = document.getElementById('chat-container');
     container.style.display = chatAbierto ? 'flex' : 'none';
@@ -96,6 +97,8 @@ document.getElementById('chat-button').addEventListener('click', () => {
     if (chatAbierto) {
         enviarBienvenida();
         loadMessages();
+        // Aseguramos que el input esté visible
+        document.getElementById('chat-input').style.display = 'flex';
         typingInterval = setInterval(loadTyping, 1000);
         mensajesInterval = setInterval(loadMessages, 3000);
     } else {
@@ -106,11 +109,12 @@ document.getElementById('chat-button').addEventListener('click', () => {
 
 // Configurar listener para escritura
 const inputEl = document.getElementById('message-input');
-inputEl && inputEl.addEventListener('input', sendTyping);
+if (inputEl) inputEl.addEventListener('input', sendTyping);
 
-// Al cargar:
+// Al cargar la página
 window.addEventListener('load', () => {
-    // Mostrar burbuja bienvenida
+    // Escondemos container, mostramos breve burbuja
+    document.getElementById('chat-container').style.display = 'none';
     const bubble = document.getElementById('chat-bubble');
     bubble.style.display = 'block';
     setTimeout(() => bubble.style.display = 'none', 7000);
