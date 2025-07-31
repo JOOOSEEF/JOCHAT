@@ -4,36 +4,68 @@
     <meta charset="UTF-8">
     <title>Panel de Soporte</title>
     <style>
-        body { margin: 0; font-family: sans-serif; display: flex; height: 100vh; }
+        body { margin: 0; font-family: sans-serif; }
+        nav { background: #ffa500; padding: 10px; color: white; display: flex; gap: 10px; }
+        nav button { background: transparent; border: none; color: white; font-size: 16px; cursor: pointer; }
+        nav button.active { font-weight: bold; text-decoration: underline; }
+        #container { display: flex; height: calc(100vh - 48px); }
         #clientes { width: 200px; background: #eee; padding: 10px; overflow-y: auto; }
-        #chat { flex: 1; display: flex; flex-direction: column; }
-        #chat-mensajes { flex: 1; padding: 10px; overflow-y: auto; background: #f9f9f9; }
-        #chat-input { display: flex; padding: 10px; border-top: 1px solid #ccc; }
+
+        #seccion-chats, #seccion-tickets { flex: 1; display: none; padding: 10px; overflow-y: auto; }
+        #seccion-chats.active, #seccion-tickets.active { display: block; }
+
+        #chat { display: flex; flex-direction: column; height: 100%; }
+        #chat-mensajes { flex: 1; padding: 10px; overflow-y: auto; background: #f9f9f9; margin-bottom: 10px; }
+        #chat-input { display: flex; gap: 10px; }
         #chat-input input { flex: 1; padding: 5px; }
         #chat-input button { padding: 5px 10px; }
 
-        .cliente { cursor: pointer; padding: 5px; border-bottom: 1px solid #ccc; }
+        .cliente { cursor: pointer; padding: 5px; border-bottom: 1px solid #ccc; position: relative; }
         .cliente:hover { background: #ddd; }
-        .cliente.selected {
-            background-color: #ffa500;
-            color: white;
-            font-weight: bold;
-        }
+        .cliente.selected { background-color: #ffa500; color: white; font-weight: bold; }
+        .cliente button { position: absolute; right: 5px; top: 5px; padding: 2px 5px; font-size: 12px; }
+
+        .ticket { border-bottom: 1px solid #ccc; padding: 8px 0; }
+        .ticket button { margin-top: 5px; }
     </style>
 </head>
 <body>
-    <div id="clientes"></div>
-
-    <div id="chat">
-        <div id="chat-mensajes"></div>
-        <div id="chat-input">
-            <input type="text" id="respuesta" placeholder="Escribe una respuesta...">
-            <button onclick="responder()">Enviar</button>
+    <nav>
+        <button id="btn-chats" class="active" onclick="mostrarSeccion('chats')">Chats</button>
+        <button id="btn-tickets" onclick="mostrarSeccion('tickets')">Tickets</button>
+    </nav>
+    <div id="container">
+        <div id="container-chats">
+            <div id="clientes"></div>
+            <div id="seccion-chats" class="active">
+                <div id="chat">
+                    <div id="chat-mensajes"></div>
+                    <div id="chat-input">
+                        <input type="text" id="respuesta" placeholder="Escribe tu respuesta...">
+                        <button onclick="responder()">Enviar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div id="seccion-tickets">
+            <h2>Tickets fuera de horario</h2>
+            <div id="lista-tickets"></div>
         </div>
     </div>
 
     <script>
+        // Nombre del agente que atiende
+        const agenteNombre = prompt('¿Cómo te llamas?', 'Agente');
         let clienteSeleccionado = null;
+        let asignaciones = {};
+
+        function mostrarSeccion(sec) {
+            document.getElementById('btn-chats').classList.toggle('active', sec==='chats');
+            document.getElementById('btn-tickets').classList.toggle('active', sec==='tickets');
+            document.getElementById('seccion-chats').classList.toggle('active', sec==='chats');
+            document.getElementById('seccion-tickets').classList.toggle('active', sec==='tickets');
+            if (sec==='tickets') cargarTickets();
+        }
 
         function cargarClientes() {
             fetch('/clientes')
@@ -45,17 +77,41 @@
                         const div = document.createElement('div');
                         div.textContent = cliente;
                         div.className = 'cliente';
+                        // Botón de asignar si no asignado
+                        const btn = document.createElement('button');
+                        btn.textContent = asignaciones[cliente] ? 'Asignado a ' + asignaciones[cliente] : 'Atender';
+                        btn.disabled = asignaciones[cliente] && asignaciones[cliente]!==agenteNombre;
+                        btn.onclick = (e) => {
+                            e.stopPropagation();
+                            asignarConversacion(cliente);
+                        };
+                        div.appendChild(btn);
                         div.onclick = () => {
                             clienteSeleccionado = cliente;
                             cargarMensajes(cliente);
-
-                            // Destacar visualmente el cliente seleccionado
                             document.querySelectorAll('.cliente').forEach(el => el.classList.remove('selected'));
                             div.classList.add('selected');
                         };
                         cont.appendChild(div);
                     });
                 });
+        }
+
+        function cargarAsignaciones() {
+            fetch('/conversaciones')
+                .then(res=>res.json())
+                .then(data=>{
+                    asignaciones = {};
+                    data.forEach(c=> asignaciones[c.cliente_id] = c.agente_nombre);
+                    cargarClientes();
+                });
+        }
+
+        function asignarConversacion(cliente_id) {
+            fetch('/conversaciones', {
+                method:'POST', headers:{'Content-Type':'application/json'},
+                body:JSON.stringify({ cliente_id, agente_nombre: agenteNombre })
+            }).then(()=> cargarAsignaciones());
         }
 
         function cargarMensajes(cliente_id) {
@@ -69,37 +125,51 @@
                         p.textContent = `[${msg.fecha}] ${msg.usuario}: ${msg.texto}`;
                         cont.appendChild(p);
                     });
-                    cont.scrollTop = cont.scrollHeight; // Auto-scroll
+                    cont.scrollTop = cont.scrollHeight;
                 });
         }
 
         function responder() {
             const texto = document.getElementById('respuesta').value.trim();
             if (!texto || !clienteSeleccionado) return;
-
             fetch('/mensajes', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    cliente_id: clienteSeleccionado,
-                    usuario: "Soporte",
-                    texto: texto
-                })
-            }).then(() => {
-                document.getElementById('respuesta').value = '';
-                cargarMensajes(clienteSeleccionado);
-            });
+                body: JSON.stringify({ cliente_id: clienteSeleccionado, usuario: agenteNombre, texto })
+            }).then(()=> cargarMensajes(clienteSeleccionado));
         }
 
-        // Enviar con Enter
-        document.getElementById('respuesta').addEventListener('keydown', function (e) {
-            if (e.key === 'Enter') responder();
-        });
+        // Tickets
+        function cargarTickets() {
+            fetch('/tickets')
+                .then(res=>res.json())
+                .then(data=>{
+                    const out = document.getElementById('lista-tickets');
+                    out.innerHTML = '';
+                    data.forEach(t=>{
+                        const div = document.createElement('div');
+                        div.className = 'ticket';
+                        div.innerHTML = `
+                            <strong>${t.nombre}</strong> (${t.fecha})<br>
+                            ${t.email} | ${t.telefono}<br>
+                            ${t.mensaje}<br>
+                            <button onclick="atenderTicket(${t.id})" ${t.atendido?'disabled':''}>
+                                ${t.atendido?'Atendido':'Marcar atendido'}
+                            </button>
+                        `;
+                        out.appendChild(div);
+                    });
+                });
+        }
 
-        cargarClientes();
-        setInterval(() => {
-            if (clienteSeleccionado) cargarMensajes(clienteSeleccionado);
-        }, 3000);
+        function atenderTicket(id) {
+            fetch(`/tickets/${id}`, { method:'POST' })
+                .then(()=> cargarTickets());
+        }
+
+        // Inicializar
+        cargarAsignaciones();
+        setInterval(()=>{ if(document.getElementById('seccion-chats').classList.contains('active')) cargarAsignaciones(); }, 5000);
     </script>
 </body>
 </html>
