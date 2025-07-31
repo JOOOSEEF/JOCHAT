@@ -6,6 +6,10 @@ const cliente_id = localStorage.getItem('cliente_id');
 
 // Estado de escritura en el servidor
 // No eliminar: este objeto se gestiona en el backend
+typing_status = {};
+
+// Bandera en esta sesión para no reenviar saludo varias veces
+let bienvenidaEnviadaSession = false;
 
 function loadMessages() {
     fetch(`/mensajes/${cliente_id}`)
@@ -52,10 +56,9 @@ function sendMessage() {
     });
 }
 
-// Enviar bienvenida automáticamente si aún no se ha hecho
+// Enviar bienvenida una sola vez en esta sesión
 function enviarBienvenida() {
-    const key = `bienvenida_enviada_${cliente_id}`;
-    if (!localStorage.getItem(key)) {
+    if (!bienvenidaEnviadaSession) {
         fetch('/mensajes', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -66,14 +69,12 @@ function enviarBienvenida() {
             })
         })
         .then(() => {
-            localStorage.setItem(key, 'true');
+            bienvenidaEnviadaSession = true;
             loadMessages();
         })
         .catch(err => {
             console.error('Error al enviar mensaje de bienvenida:', err);
         });
-    } else {
-        loadMessages();
     }
 }
 
@@ -100,7 +101,7 @@ function loadTyping() {
 document.getElementById('message-input')
     .addEventListener('input', sendTyping);
 
-// === Aquí modificamos toggleChat para incluir el saludo ===
+// Modificamos toggleChat para incluir el saludo
 function toggleChat() {
     chatAbierto = !chatAbierto;
     document.getElementById('chat-container').style.display = chatAbierto ? 'flex' : 'none';
@@ -108,13 +109,11 @@ function toggleChat() {
     verificarHorario();
 
     if (chatAbierto) {
-        // Lanzamos la bienvenida y recarga de mensajes
         enviarBienvenida();
     }
 }
 
 // Inicia carga de mensajes y typing periódicamente
-// (estas llamadas se mantienen)
 loadMessages();
 setInterval(loadMessages, 3000);
 setInterval(loadTyping, 1000);
