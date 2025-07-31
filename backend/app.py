@@ -4,7 +4,8 @@ from datetime import datetime
 from flask_cors import CORS
 import os
 
-# Inicializar Flask y permitir CORS\app = Flask(__name__, static_folder='static', template_folder='templates')
+# Inicializar Flask y permitir CORS
+app = Flask(__name__, static_folder='static', template_folder='templates')
 CORS(app)
 
 # Ruta absoluta a la base de datos
@@ -49,104 +50,108 @@ def init_db():
             ''')
             conn.commit()
 
-# Ruta principal del chat (cliente)
+# Punto de entrada Web
 @app.route('/')
 def home():
     return render_template('index.html')
 
-# Ruta del panel de administración\@app.route('/admin')
+@app.route('/admin')
 def panel_admin():
     return render_template('admin.html')
 
-# Endpoints de Mensajes
+# Mensajes: guardar y leer
+@app.route('/mensajes', methods=['POST'])
+def guardar_mensaje():
+    data = request.get_json()
+    cliente_id = data.get('cliente_id', 'anonimo')
+    usuario = data.get('usuario', 'Cliente')
+    texto = data.get('texto', '')
+    fecha = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    with sqlite3.connect(DB_PATH) as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            'INSERT INTO mensajes (cliente_id, usuario, texto, fecha) VALUES (?, ?, ?, ?)',
+            (cliente_id, usuario, texto, fecha)
+        )
+        conn.commit()
+    return jsonify({'status': 'ok', 'fecha': fecha})
+
 @app.route('/mensajes/<cliente_id>', methods=['GET'])
 def mensajes_por_cliente(cliente_id):
     with sqlite3.connect(DB_PATH) as conn:
         cursor = conn.cursor()
-        cursor.execute("SELECT usuario, texto, fecha FROM mensajes WHERE cliente_id = ? ORDER BY fecha ASC", (cliente_id,))
-        mensajes = cursor.fetchall()
-    return jsonify([{"usuario": u, "texto": t, "fecha": f} for u, t, f in mensajes])
-
-@app.route('/mensajes', methods=['POST'])
-def guardar_mensaje():
-    data = request.get_json()
-    cliente_id = data.get("cliente_id", "anonimo")
-    usuario = data.get("usuario", "Cliente")
-    texto = data.get("texto", "")
-    fecha = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    with sqlite3.connect(DB_PATH) as conn:
-        cursor = conn.cursor()
         cursor.execute(
-            "INSERT INTO mensajes (cliente_id, usuario, texto, fecha) VALUES (?, ?, ?, ?)",
-            (cliente_id, usuario, texto, fecha)
+            'SELECT usuario, texto, fecha FROM mensajes WHERE cliente_id = ? ORDER BY fecha ASC',
+            (cliente_id,)
         )
-        conn.commit()
-    return jsonify({"status": "ok", "fecha": fecha})
+        filas = cursor.fetchall()
+    return jsonify([{'usuario': u, 'texto': t, 'fecha': f} for u, t, f in filas])
 
-# Endpoints de Clientes y Conversaciones Asignadas
+# Clientes
 @app.route('/clientes', methods=['GET'])
 def listar_clientes():
     with sqlite3.connect(DB_PATH) as conn:
         cursor = conn.cursor()
-        cursor.execute("SELECT DISTINCT cliente_id FROM mensajes ORDER BY cliente_id ASC")
-        clientes = [row[0] for row in cursor.fetchall()]
-    return jsonify(clientes)
+        cursor.execute('SELECT DISTINCT cliente_id FROM mensajes ORDER BY cliente_id ASC')
+        filas = cursor.fetchall()
+    return jsonify([row[0] for row in filas])
 
+# Asignaciones de conversación
 @app.route('/conversaciones', methods=['POST'])
 def asignar_conversacion():
     data = request.get_json()
-    cliente_id = data.get("cliente_id")
-    agente_nombre = data.get("agente_nombre")
-    fecha_inicio = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    cliente_id = data.get('cliente_id')
+    agente_nombre = data.get('agente_nombre')
+    fecha_inicio = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     with sqlite3.connect(DB_PATH) as conn:
         cursor = conn.cursor()
         cursor.execute(
-            "INSERT OR REPLACE INTO conversaciones_asignadas (cliente_id, agente_nombre, fecha_inicio) VALUES (?, ?, ?)",
+            'INSERT OR REPLACE INTO conversaciones_asignadas (cliente_id, agente_nombre, fecha_inicio) VALUES (?, ?, ?)',
             (cliente_id, agente_nombre, fecha_inicio)
         )
         conn.commit()
-    return jsonify({"status": "ok"})
+    return jsonify({'status': 'ok'})
 
 @app.route('/conversaciones', methods=['GET'])
 def obtener_asignaciones():
     with sqlite3.connect(DB_PATH) as conn:
         cursor = conn.cursor()
-        cursor.execute("SELECT cliente_id, agente_nombre, fecha_inicio FROM conversaciones_asignadas")
+        cursor.execute('SELECT cliente_id, agente_nombre, fecha_inicio FROM conversaciones_asignadas')
         filas = cursor.fetchall()
-    return jsonify([{"cliente_id": c, "agente_nombre": a, "fecha_inicio": f} for c, a, f in filas])
+    return jsonify([{'cliente_id': c, 'agente_nombre': a, 'fecha_inicio': f} for c, a, f in filas])
 
-# Endpoints de Tickets
+# Tickets fuera de horario
 @app.route('/tickets', methods=['POST'])
 def crear_ticket():
     data = request.get_json()
-    nombre = data.get("nombre", "")
-    email = data.get("email", "")
-    telefono = data.get("telefono", "")
-    mensaje = data.get("mensaje", "")
-    cliente_id = data.get("cliente_id", None)
-    fecha = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    nombre = data.get('nombre', '')
+    email = data.get('email', '')
+    telefono = data.get('telefono', '')
+    mensaje = data.get('mensaje', '')
+    cliente_id = data.get('cliente_id', None)
+    fecha = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     with sqlite3.connect(DB_PATH) as conn:
         cursor = conn.cursor()
         cursor.execute(
-            "INSERT INTO tickets (cliente_id, nombre, email, telefono, mensaje, fecha) VALUES (?, ?, ?, ?, ?, ?)",
+            'INSERT INTO tickets (cliente_id, nombre, email, telefono, mensaje, fecha) VALUES (?, ?, ?, ?, ?, ?)',
             (cliente_id, nombre, email, telefono, mensaje, fecha)
         )
         conn.commit()
         ticket_id = cursor.lastrowid
-    return jsonify({"status": "ok", "ticket_id": ticket_id})
+    return jsonify({'status': 'ok', 'ticket_id': ticket_id})
 
 @app.route('/tickets', methods=['GET'])
 def listar_tickets():
     with sqlite3.connect(DB_PATH) as conn:
         cursor = conn.cursor()
-        cursor.execute("SELECT id, cliente_id, nombre, email, telefono, mensaje, fecha, atendido FROM tickets ORDER BY fecha DESC")
+        cursor.execute('SELECT id, cliente_id, nombre, email, telefono, mensaje, fecha, atendido FROM tickets ORDER BY fecha DESC')
         filas = cursor.fetchall()
     tickets = []
     for id_, cid, n, e, t, m, f, a in filas:
         tickets.append({
-            "id": id_, "cliente_id": cid, "nombre": n,
-            "email": e, "telefono": t, "mensaje": m,
-            "fecha": f, "atendido": bool(a)
+            'id': id_, 'cliente_id': cid, 'nombre': n,
+            'email': e, 'telefono': t, 'mensaje': m,
+            'fecha': f, 'atendido': bool(a)
         })
     return jsonify(tickets)
 
@@ -154,12 +159,11 @@ def listar_tickets():
 def marcar_atendido(ticket_id):
     with sqlite3.connect(DB_PATH) as conn:
         cursor = conn.cursor()
-        cursor.execute("UPDATE tickets SET atendido = 1 WHERE id = ?", (ticket_id,))
+        cursor.execute('UPDATE tickets SET atendido = 1 WHERE id = ?', (ticket_id,))
         conn.commit()
-    return jsonify({"status": "ok"})
+    return jsonify({'status': 'ok'})
 
-# Iniciar el servidor
 if __name__ == '__main__':
     init_db()
-    port = int(os.environ.get("PORT", 5000))  # Para Render
+    port = int(os.environ.get('PORT', 5000))
     app.run(debug=False, host='0.0.0.0', port=port)
