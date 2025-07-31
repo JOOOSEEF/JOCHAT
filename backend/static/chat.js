@@ -1,5 +1,12 @@
+// Generar cliente_id si no existe
+if (!localStorage.getItem('cliente_id')) {
+    localStorage.setItem('cliente_id', 'cliente_' + Math.random().toString(36).substring(2, 10));
+}
+
+const cliente_id = localStorage.getItem('cliente_id');
+
 function loadMessages() {
-    fetch('/mensajes')
+    fetch(`/mensajes/${cliente_id}`)
         .then(response => response.json())
         .then(data => {
             const container = document.getElementById('chat-messages');
@@ -24,7 +31,11 @@ function sendMessage() {
     fetch('/mensajes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ usuario: "Cliente", texto: text })
+        body: JSON.stringify({
+            cliente_id: cliente_id,
+            usuario: "Cliente",
+            texto: text
+        })
     })
     .then(response => response.json())
     .then(data => {
