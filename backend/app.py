@@ -13,20 +13,19 @@ DB_PATH = os.path.join(os.path.dirname(__file__), 'chat.db')
 
 # Crear base de datos si no existe
 def init_db():
-    if not os.path.exists(DB_PATH):
-        with sqlite3.connect(DB_PATH) as conn:
-            cursor = conn.cursor()
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS mensajes (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    usuario TEXT,
-                    texto TEXT,
-                    fecha TEXT
-                )
-            ''')
-            conn.commit()
+    with sqlite3.connect(DB_PATH) as conn:
+        cursor = conn.cursor()
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS mensajes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                usuario TEXT,
+                texto TEXT,
+                fecha TEXT
+            )
+        ''')
+        conn.commit()
 
-# Ruta principal del chat
+# Ruta principal del chat (cliente)
 @app.route('/')
 def home():
     return render_template('index.html')
@@ -60,8 +59,8 @@ def guardar_mensaje():
 
     return jsonify({"status": "ok", "fecha": fecha})
 
-# Ejecutar servidor
+# Iniciar el servidor
 if __name__ == '__main__':
     init_db()
-    port = int(os.environ.get("PORT", 5000))  # Requerido por Render
+    port = int(os.environ.get("PORT", 5000))  # Para Render
     app.run(debug=False, host='0.0.0.0', port=port)
