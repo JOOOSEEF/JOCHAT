@@ -97,6 +97,9 @@ def login():
         error = True
     return render_template('login.html', error=error)
 
+# Aquí añadimos GET y POST para registro de agentes,
+# justo debajo de la ruta de login:
+
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     error = None
@@ -118,6 +121,7 @@ def register():
                 message = 'Agente registrado con éxito'
             except sqlite3.IntegrityError:
                 error = 'Ese usuario ya existe'
+    # Renderizamos register.html tanto en GET como después del POST:
     return render_template('register.html', error=error, message=message)
 
 @app.route('/logout')
