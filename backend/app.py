@@ -1,65 +1,126 @@
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, request, jsonify, render_template, redirect, url_for
+from flask_cors import CORS
+from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
+from werkzeug.security import generate_password_hash, check_password_hash
 import sqlite3
 from datetime import datetime
-from flask_cors import CORS
 import os
 
-# Inicializar Flask y permitir CORS
-app = Flask(__name__, static_folder='static', template_folder='templates')
+# App Flask
+template_dir = os.path.join(os.path.dirname(__file__), 'templates')
+app = Flask(__name__, static_folder='static', template_folder=template_dir)
+app.secret_key = os.urandom(24)
 CORS(app)
 
-# Ruta absoluta a la base de datos
+# Flask-Login
+login_manager = LoginManager()
+login_manager.login_view = 'login'
+login_manager.init_app(app)
+
+# DB path
 DB_PATH = os.path.join(os.path.dirname(__file__), 'chat.db')
 
-# Crear base de datos y tablas si no existen
-def init_db():
-    if not os.path.exists(DB_PATH):
-        with sqlite3.connect(DB_PATH) as conn:
-            cursor = conn.cursor()
-            # Tabla de mensajes
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS mensajes (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    cliente_id TEXT,
-                    usuario TEXT,
-                    texto TEXT,
-                    fecha TEXT
-                )
-            ''')
-            # Tabla de tickets fuera de horario
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS tickets (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    cliente_id TEXT,
-                    nombre TEXT,
-                    email TEXT,
-                    telefono TEXT,
-                    mensaje TEXT,
-                    fecha TEXT,
-                    atendido INTEGER DEFAULT 0
-                )
-            ''')
-            # Tabla de asignaciones de conversación
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS conversaciones_asignadas (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    cliente_id TEXT UNIQUE,
-                    agente_nombre TEXT,
-                    fecha_inicio TEXT
-                )
-            ''')
-            conn.commit()
+# Usuario para Login
+class Agente(UserMixin):
+    def __init__(self, id_, username):
+        self.id = id_
+        self.username = username
 
-# Punto de entrada Web
+@login_manager.user_loader
+def load_user(user_id):
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute('SELECT id, username FROM agentes WHERE id = ?', (user_id,))
+    row = c.fetchone()
+    conn.close()
+    if row:
+        return Agente(row[0], row[1])
+    return None
+
+# Crear DB y tablas
+def init_db():
+    need_seed = not os.path.exists(DB_PATH)
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS agentes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE,
+            password TEXT
+        )
+    ''')
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS mensajes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            cliente_id TEXT,
+            usuario TEXT,
+            texto TEXT,
+            fecha TEXT
+        )
+    ''')
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS tickets (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            cliente_id TEXT,
+            nombre TEXT,
+            email TEXT,
+            telefono TEXT,
+            mensaje TEXT,
+            fecha TEXT,
+            atendido INTEGER DEFAULT 0
+        )
+    ''')
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS conversaciones_asignadas (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            cliente_id TEXT UNIQUE,
+            agente_nombre TEXT,
+            fecha_inicio TEXT
+        )
+    ''')
+    conn.commit()
+    # Seed default agent
+    if need_seed:
+        hashed = generate_password_hash('password123')
+        c.execute('INSERT OR IGNORE INTO agentes (username, password) VALUES (?, ?)', ('admin', hashed))
+        conn.commit()
+    conn.close()
+
+# --- Rutas de autenticación ---
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        c.execute('SELECT id, password FROM agentes WHERE username = ?', (username,))
+        row = c.fetchone()
+        conn.close()
+        if row and check_password_hash(row[1], password):
+            user = Agente(row[0], username)
+            login_user(user)
+            return redirect(url_for('panel_admin'))
+        return render_template('login.html', error='Usuario o contraseña incorrectos')
+    return render_template('login.html')
+
+@app.route('/logout')
+@login_required
+def logout():
+    logout_user()
+    return redirect(url_for('login'))
+
+# --- Vistas básicas ---
 @app.route('/')
 def home():
     return render_template('index.html')
 
 @app.route('/admin')
+@login_required
 def panel_admin():
-    return render_template('admin.html')
+    return render_template('admin.html', agente=current_user.username)
 
-# Mensajes: guardar y leer
+# --- Mensajes ---
 @app.route('/mensajes', methods=['POST'])
 def guardar_mensaje():
     data = request.get_json()
@@ -67,60 +128,61 @@ def guardar_mensaje():
     usuario = data.get('usuario', 'Cliente')
     texto = data.get('texto', '')
     fecha = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    with sqlite3.connect(DB_PATH) as conn:
-        cursor = conn.cursor()
-        cursor.execute(
-            'INSERT INTO mensajes (cliente_id, usuario, texto, fecha) VALUES (?, ?, ?, ?)',
-            (cliente_id, usuario, texto, fecha)
-        )
-        conn.commit()
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute('INSERT INTO mensajes (cliente_id, usuario, texto, fecha) VALUES (?, ?, ?, ?)',
+              (cliente_id, usuario, texto, fecha))
+    conn.commit()
+    conn.close()
     return jsonify({'status': 'ok', 'fecha': fecha})
 
 @app.route('/mensajes/<cliente_id>', methods=['GET'])
 def mensajes_por_cliente(cliente_id):
-    with sqlite3.connect(DB_PATH) as conn:
-        cursor = conn.cursor()
-        cursor.execute(
-            'SELECT usuario, texto, fecha FROM mensajes WHERE cliente_id = ? ORDER BY fecha ASC',
-            (cliente_id,)
-        )
-        filas = cursor.fetchall()
-    return jsonify([{'usuario': u, 'texto': t, 'fecha': f} for u, t, f in filas])
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute('SELECT usuario, texto, fecha FROM mensajes WHERE cliente_id = ? ORDER BY fecha ASC', (cliente_id,))
+    rows = c.fetchall()
+    conn.close()
+    return jsonify([{'usuario': u, 'texto': t, 'fecha': f} for u, t, f in rows])
 
-# Clientes
+# --- Clientes ---
 @app.route('/clientes', methods=['GET'])
+@login_required
 def listar_clientes():
-    with sqlite3.connect(DB_PATH) as conn:
-        cursor = conn.cursor()
-        cursor.execute('SELECT DISTINCT cliente_id FROM mensajes ORDER BY cliente_id ASC')
-        filas = cursor.fetchall()
-    return jsonify([row[0] for row in filas])
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute('SELECT DISTINCT cliente_id FROM mensajes ORDER BY cliente_id ASC')
+    rows = c.fetchall()
+    conn.close()
+    return jsonify([r[0] for r in rows])
 
-# Asignaciones de conversación
+# --- Conversaciones ---
 @app.route('/conversaciones', methods=['POST'])
+@login_required
 def asignar_conversacion():
     data = request.get_json()
-    cliente_id = data.get('cliente_id')
-    agente_nombre = data.get('agente_nombre')
-    fecha_inicio = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    with sqlite3.connect(DB_PATH) as conn:
-        cursor = conn.cursor()
-        cursor.execute(
-            'INSERT OR REPLACE INTO conversaciones_asignadas (cliente_id, agente_nombre, fecha_inicio) VALUES (?, ?, ?)',
-            (cliente_id, agente_nombre, fecha_inicio)
-        )
-        conn.commit()
+    cliente_id = data['cliente_id']
+    agente_nombre = data['agente_nombre']
+    fecha = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute('INSERT OR REPLACE INTO conversaciones_asignadas (cliente_id, agente_nombre, fecha_inicio) VALUES (?, ?, ?)',
+              (cliente_id, agente_nombre, fecha))
+    conn.commit()
+    conn.close()
     return jsonify({'status': 'ok'})
 
 @app.route('/conversaciones', methods=['GET'])
+@login_required
 def obtener_asignaciones():
-    with sqlite3.connect(DB_PATH) as conn:
-        cursor = conn.cursor()
-        cursor.execute('SELECT cliente_id, agente_nombre, fecha_inicio FROM conversaciones_asignadas')
-        filas = cursor.fetchall()
-    return jsonify([{'cliente_id': c, 'agente_nombre': a, 'fecha_inicio': f} for c, a, f in filas])
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute('SELECT cliente_id, agente_nombre, fecha_inicio FROM conversaciones_asignadas')
+    rows = c.fetchall()
+    conn.close()
+    return jsonify([{'cliente_id': c0, 'agente_nombre': a, 'fecha_inicio': f} for c0, a, f in rows])
 
-# Tickets fuera de horario
+# --- Tickets ---
 @app.route('/tickets', methods=['POST'])
 def crear_ticket():
     data = request.get_json()
@@ -130,37 +192,38 @@ def crear_ticket():
     mensaje = data.get('mensaje', '')
     cliente_id = data.get('cliente_id', None)
     fecha = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    with sqlite3.connect(DB_PATH) as conn:
-        cursor = conn.cursor()
-        cursor.execute(
-            'INSERT INTO tickets (cliente_id, nombre, email, telefono, mensaje, fecha) VALUES (?, ?, ?, ?, ?, ?)',
-            (cliente_id, nombre, email, telefono, mensaje, fecha)
-        )
-        conn.commit()
-        ticket_id = cursor.lastrowid
-    return jsonify({'status': 'ok', 'ticket_id': ticket_id})
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute('INSERT INTO tickets (cliente_id, nombre, email, telefono, mensaje, fecha) VALUES (?, ?, ?, ?, ?, ?)',
+              (cliente_id, nombre, email, telefono, mensaje, fecha))
+    conn.commit()
+    tid = c.lastrowid
+    conn.close()
+    return jsonify({'status': 'ok', 'ticket_id': tid})
 
 @app.route('/tickets', methods=['GET'])
+@login_required
 def listar_tickets():
-    with sqlite3.connect(DB_PATH) as conn:
-        cursor = conn.cursor()
-        cursor.execute('SELECT id, cliente_id, nombre, email, telefono, mensaje, fecha, atendido FROM tickets ORDER BY fecha DESC')
-        filas = cursor.fetchall()
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute('SELECT id, cliente_id, nombre, email, telefono, mensaje, fecha, atendido FROM tickets ORDER BY fecha DESC')
+    rows = c.fetchall()
+    conn.close()
     tickets = []
-    for id_, cid, n, e, t, m, f, a in filas:
-        tickets.append({
-            'id': id_, 'cliente_id': cid, 'nombre': n,
-            'email': e, 'telefono': t, 'mensaje': m,
-            'fecha': f, 'atendido': bool(a)
-        })
+    for id_, cid, n, e, t, m, f, a in rows:
+        tickets.append({'id': id_, 'cliente_id': cid, 'nombre': n,
+                        'email': e, 'telefono': t, 'mensaje': m,
+                        'fecha': f, 'atendido': bool(a)})
     return jsonify(tickets)
 
 @app.route('/tickets/<int:ticket_id>', methods=['POST'])
+@login_required
 def marcar_atendido(ticket_id):
-    with sqlite3.connect(DB_PATH) as conn:
-        cursor = conn.cursor()
-        cursor.execute('UPDATE tickets SET atendido = 1 WHERE id = ?', (ticket_id,))
-        conn.commit()
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute('UPDATE tickets SET atendido = 1 WHERE id = ?', (ticket_id,))
+    conn.commit()
+    conn.close()
     return jsonify({'status': 'ok'})
 
 if __name__ == '__main__':
