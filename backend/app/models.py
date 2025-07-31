@@ -1,9 +1,9 @@
-# backend/models.py
+# backend/app/models.py
 
 import sqlite3
 from datetime import datetime
 from flask_login import UserMixin
-from config import Config
+from app.config import Config  # antes era from config import Config
 
 def get_conn():
     """Get a sqlite3 connection with row_factory set to dict-like rows."""
