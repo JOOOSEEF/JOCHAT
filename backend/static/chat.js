@@ -4,6 +4,9 @@ if (!localStorage.getItem('cliente_id')) {
 }
 const cliente_id = localStorage.getItem('cliente_id');
 
+// Estado de escritura en el servidor
+// No eliminar: este objeto se gestiona en el backend
+
 function loadMessages() {
     fetch(`/mensajes/${cliente_id}`)
         .then(response => response.json())
@@ -74,5 +77,31 @@ function enviarBienvenida() {
     }
 }
 
-// Inicia carga de mensajes periódicamente
+// Indicador "escribiendo"
+function sendTyping() {
+    fetch('/typing', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cliente_id })
+    }).catch(err => console.error('Error enviando typing:', err));
+}
+
+function loadTyping() {
+    fetch(`/typing/${cliente_id}`)
+        .then(response => response.json())
+        .then(data => {
+            const indicator = document.getElementById('typing-indicator');
+            indicator.style.display = data.typing ? 'block' : 'none';
+        })
+        .catch(err => console.error('Error cargando typing:', err));
+}
+
+// Configurar listener para "escribiendo"
+document.getElementById('message-input')
+    .addEventListener('input', sendTyping);
+
+// Inicia carga de mensajes y typing periódicamente
+enviarBienvenida();
+loadMessages();
 setInterval(loadMessages, 3000);
+setInterval(loadTyping, 1000);
