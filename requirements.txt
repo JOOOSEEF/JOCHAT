@@ -1,2 +1,3 @@
 flask
 flask_cors
+Flask-Login==0.6.2
