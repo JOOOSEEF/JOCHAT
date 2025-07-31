@@ -16,12 +16,16 @@ def create_app():
             # Crea las tablas definidas por SQLAlchemy (modelos)
             db.create_all()
 
-            # Ejecuta el schema SQL crudo envuelto en text()
+            # Lee y ejecuta cada sentencia del schema SQL
             schema_path = os.path.join(os.path.dirname(__file__), 'schema.sql')
             with open(schema_path) as f:
                 sql_statements = f.read()
-                db.session.execute(text(sql_statements))
-                db.session.commit()
+
+            # Divide por ';' y ejecuta cada bloque no vacío
+            for stmt in filter(None, (s.strip() for s in sql_statements.split(';'))):
+                db.session.execute(text(stmt))
+
+            db.session.commit()
 
     # Registro de blueprints
     from app.auth import auth_bp
