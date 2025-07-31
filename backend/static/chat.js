@@ -4,137 +4,114 @@ if (!localStorage.getItem('cliente_id')) {
 }
 const cliente_id = localStorage.getItem('cliente_id');
 
-// Estado de escritura en el servidor
-// No eliminar: este objeto se gestiona en el backend
-typing_status = {};
-
-// Bandera en esta sesión para no reenviar saludo varias veces
-let bienvenidaEnviadaSession = false;
+let chatAbierto = false;
+let bienvenidaEnviada = false;
+let bienvenidaUIMostrada = false;
+let mensajesInterval;
+let typingInterval;
 
 function loadMessages() {
     fetch(`/mensajes/${cliente_id}`)
-        .then(response => response.json())
+        .then(res => res.json())
         .then(data => {
             const container = document.getElementById('chat-messages');
             container.innerHTML = '';
-
             data.forEach(msg => {
                 const div = document.createElement('div');
                 div.textContent = `${msg.usuario}: ${msg.texto}`;
                 container.appendChild(div);
             });
-
             container.scrollTop = container.scrollHeight;
         })
-        .catch(err => {
-            console.error('Error al cargar mensajes:', err);
-        });
+        .catch(err => console.error('Error cargando mensajes:', err));
 }
 
 function sendMessage() {
     const input = document.getElementById('message-input');
     const text = input.value.trim();
     if (!text) return;
-
     fetch('/mensajes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            cliente_id: cliente_id,
-            usuario: "Cliente",
-            texto: text
-        })
+        body: JSON.stringify({ cliente_id, usuario: 'Cliente', texto: text })
     })
-    .then(response => response.json())
-    .then(data => {
+    .then(res => res.json())
+    .then(() => {
         input.value = '';
         loadMessages();
     })
-    .catch(err => {
-        alert('Error al enviar el mensaje');
-        console.error(err);
-    });
+    .catch(err => console.error('Error enviando:', err));
 }
 
-// Enviar bienvenida una sola vez en esta sesión
 function enviarBienvenida() {
-    if (!bienvenidaEnviadaSession) {
+    if (!bienvenidaEnviada) {
         fetch('/mensajes', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                cliente_id: cliente_id,
-                usuario: "Soporte",
-                texto: "👋 Hola, ¿en qué puedo ayudarte?"
-            })
+            body: JSON.stringify({ cliente_id, usuario: 'Soporte', texto: '👋 Hola, ¿en qué puedo ayudarte?' })
         })
         .then(() => {
-            bienvenidaEnviadaSession = true;
-            loadMessages();
+            bienvenidaEnviada = true;
+            showWelcomeInUI();
         })
-        .catch(err => {
-            console.error('Error al enviar mensaje de bienvenida:', err);
-        });
+        .catch(err => console.error('Error saludo:', err));
     }
 }
 
-// Añadimos función para mostrar bienvenida en la UI
-let bienvenidaUIMostrada = false;
 function showWelcomeInUI() {
     if (!bienvenidaUIMostrada) {
         const container = document.getElementById('chat-messages');
         const div = document.createElement('div');
-        div.textContent = "👋 Hola, ¿en qué puedo ayudarte?";
-        div.className = 'msg msg-agente';
+        div.textContent = '👋 Hola, ¿en qué puedo ayudarte?';
+        div.style.fontStyle = 'italic';
         container.appendChild(div);
         container.scrollTop = container.scrollHeight;
         bienvenidaUIMostrada = true;
     }
 }
 
-// Indicador "escribiendo"
 function sendTyping() {
     fetch('/typing', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ cliente_id })
-    }).catch(err => console.error('Error enviando typing:', err));
+    }).catch(err => console.error('Error typing:', err));
 }
 
 function loadTyping() {
     fetch(`/typing/${cliente_id}`)
-        .then(response => response.json())
+        .then(res => res.json())
         .then(data => {
-            const indicator = document.getElementById('typing-indicator');
-            indicator.style.display = data.typing ? 'block' : 'none';
+            document.getElementById('typing-indicator').style.display = data.typing ? 'block' : 'none';
         })
-        .catch(err => console.error('Error cargando typing:', err));
+        .catch(err => console.error('Error cargar typing:', err));
 }
 
-// Configurar listener para "escribiendo"
-document.getElementById('message-input')
-    .addEventListener('input', sendTyping);
-
-// Modificamos toggleChat para incluir el saludo
-function toggleChat() {
+// Abrir/Cerrar chat
+document.getElementById('chat-button').addEventListener('click', () => {
     chatAbierto = !chatAbierto;
-    document.getElementById('chat-container').style.display = chatAbierto ? 'flex' : 'none';
+    const container = document.getElementById('chat-container');
+    container.style.display = chatAbierto ? 'flex' : 'none';
     document.getElementById('chat-bubble').style.display = 'none';
-    verificarHorario();
-
-    if (chatAbierto) {
-        // Enviar y mostrar bienvenida
-        enviarBienvenida();
-        showWelcomeInUI();
-    }
-}
-
     if (chatAbierto) {
         enviarBienvenida();
+        loadMessages();
+        typingInterval = setInterval(loadTyping, 1000);
+        mensajesInterval = setInterval(loadMessages, 3000);
+    } else {
+        clearInterval(typingInterval);
+        clearInterval(mensajesInterval);
     }
-}
+});
 
-// Inicia carga de mensajes y typing periódicamente
-loadMessages();
-setInterval(loadMessages, 3000);
-setInterval(loadTyping, 1000);
+// Configurar listener para escritura
+const inputEl = document.getElementById('message-input');
+inputEl && inputEl.addEventListener('input', sendTyping);
+
+// Al cargar:
+window.addEventListener('load', () => {
+    // Mostrar burbuja bienvenida
+    const bubble = document.getElementById('chat-bubble');
+    bubble.style.display = 'block';
+    setTimeout(() => bubble.style.display = 'none', 7000);
+});
