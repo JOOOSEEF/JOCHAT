@@ -26,10 +26,15 @@ def init_db():
             ''')
             conn.commit()
 
-# Ruta principal (Render carga esto en la raíz /)
+# Ruta principal del chat
 @app.route('/')
 def home():
-    return render_template("index.html")
+    return render_template('index.html')
+
+# Ruta del panel de administración
+@app.route('/admin')
+def panel_admin():
+    return render_template('admin.html')
 
 # Obtener todos los mensajes
 @app.route('/mensajes', methods=['GET'])
@@ -54,15 +59,6 @@ def guardar_mensaje():
         conn.commit()
 
     return jsonify({"status": "ok", "fecha": fecha})
-from flask import render_template
-
-@app.route('/')
-def home():
-    return render_template('index.html')
-
-@app.route('/admin')
-def panel_admin():
-    return render_template('admin.html')
 
 # Ejecutar servidor
 if __name__ == '__main__':
