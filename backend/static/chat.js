@@ -1,6 +1,5 @@
-
 function loadMessages() {
-    fetch('http://localhost:5000/mensajes')
+    fetch('/mensajes')
         .then(response => response.json())
         .then(data => {
             const container = document.getElementById('chat-messages');
@@ -22,7 +21,7 @@ function sendMessage() {
     const text = input.value.trim();
     if (!text) return;
 
-    fetch('http://localhost:5000/mensajes', {
+    fetch('/mensajes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ usuario: "Cliente", texto: text })
