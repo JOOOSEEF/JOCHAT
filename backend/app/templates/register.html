@@ -75,7 +75,7 @@
   </style>
 </head>
 <body>
-  <form method="post" action="{{ url_for('register') }}">
+  <form method="post" action="{{ url_for('auth.register') }}">
     <h2>Registrar Agente</h2>
     {% if message %}
       <div class="message">{{ message }}</div>
@@ -97,7 +97,7 @@
       required
     >
     <button type="submit">Crear cuenta</button>
-    <a href="{{ url_for('login') }}" class="link">
+    <a href="{{ url_for('auth.login') }}" class="link">
       ← ¿Ya tienes cuenta? Inicia sesión
     </a>
   </form>
