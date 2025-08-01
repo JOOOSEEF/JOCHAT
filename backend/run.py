@@ -1,5 +1,6 @@
 import os
 from flask import Flask, render_template
+from flask_login import LoginManager
 from app.config import Config
 from app import db
 from app.models import Agente, Mensaje, ConversacionAsignada, Ticket
@@ -14,7 +15,17 @@ def create_app():
     )
     app.config.from_object(Config)
 
-    # Inicializamos SQLAlchemy (aunque luego usemos sqlite3 directly para ciertas tablas)
+    # ─── Inicializa Flask-Login ─────────────────────────────────────────────
+    login_manager = LoginManager()
+    login_manager.login_view = 'auth.login'
+    login_manager.init_app(app)
+
+    @login_manager.user_loader
+    def load_user(user_id):
+        return Agente.get_by_id(int(user_id))
+    # ────────────────────────────────────────────────────────────────────────
+
+    # Inicializamos SQLAlchemy (aunque luego usemos sqlite3 directamente)
     db.init_app(app)
 
     with app.app_context():
@@ -24,7 +35,7 @@ def create_app():
             # Crea el fichero sqlite vacío
             open(db_file, 'w').close()
 
-            # Si quisieras ejecutar un schema.sql con múltiples sentencias:
+            # Ejecuta tu schema.sql si quieres
             schema_path = os.path.join(os.path.dirname(__file__), 'schema.sql')
             with open(schema_path) as f:
                 sql_statements = f.read()
@@ -32,15 +43,15 @@ def create_app():
                 db.session.execute(text(stmt))
             db.session.commit()
 
-            # Y/o crea tablas con tus propios métodos de modelos sqlite3
+            # Crea tablas con tus métodos sqlite3
             Agente.create_table()
             Mensaje.create_table()
             ConversacionAsignada.create_table()
             Ticket.create_table()
 
     # Registro de blueprints
-    from app.auth import auth_bp
-    from app.admin import admin_bp
+    from app.auth     import auth_bp
+    from app.admin    import admin_bp
     from app.chat_api import chat_bp
 
     app.register_blueprint(auth_bp)
