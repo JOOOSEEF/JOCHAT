@@ -1,9 +1,9 @@
- import os
- from flask import Flask, render_template
--from app.config import Config
--from app import db
-+from app.config import Config
- from sqlalchemy import text
+import os
+from flask import Flask, render_template
+from app.config import Config
+from app import db
+from app.config import Config
+from sqlalchemy import text
 
  def create_app():
      app = Flask(
