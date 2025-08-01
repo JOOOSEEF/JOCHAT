@@ -70,7 +70,7 @@
   </style>
 </head>
 <body>
-  <form method="post" action="{{ url_for('login') }}">
+  <form method="post" action="{{ url_for('auth.login') }}">
     <h2>Entrar como agente</h2>
     {% if error %}
       <div class="error">Usuario o contraseña incorrectos</div>
@@ -89,7 +89,7 @@
       required
     >
     <button type="submit">Login</button>
-    <a href="{{ url_for('register') }}" class="register-link">
+    <a href="{{ url_for('auth.register') }}" class="register-link">
       ¿No tienes cuenta? Regístrate
     </a>
   </form>
